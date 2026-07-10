@@ -7,6 +7,7 @@ import random
 from datetime import datetime
 from flask import Flask, jsonify, render_template_string
 from telethon import TelegramClient, events, errors
+from telethon.sessions import StringSession  # ← IMPORT THIS!
 
 # ─── LOGGING SETUP ──────────────────────────────────────────────
 logging.basicConfig(
@@ -138,8 +139,34 @@ async def send_next_periodically():
             add_log(f"❌ Error in send_next_periodically: {e}", "ERROR")
             await asyncio.sleep(10)
 
-# ─── AUTHORIZATION ─────────────────────────────────────────────
+# ─── AUTHORIZATION WITH SESSION STRING ──────────────────────
 async def authorize_client(acc):
+    # Check if session string is provided
+    session_string = os.getenv(f'SESSION_STRING_{acc["session_name"]}')
+    
+    if session_string:
+        add_log(f"🔑 Using session string for {acc['session_name']}", "INFO")
+        try:
+            # Create client from session string
+            client = TelegramClient(
+                StringSession(session_string),  # ← MAGIC!
+                acc['api_id'], 
+                acc['api_hash']
+            )
+            await client.connect()
+            
+            # Verify session is valid
+            if await client.is_user_authorized():
+                me = await client.get_me()
+                add_log(f"✅ [{acc['session_name']}] Connected via session string!", "SUCCESS")
+                add_log(f"✅ Logged in as: {me.first_name} (@{me.username if me.username else 'no username'})", "SUCCESS")
+                return client
+            else:
+                add_log(f"⚠️ Session string invalid for {acc['session_name']}, falling back to file...", "WARNING")
+        except Exception as e:
+            add_log(f"❌ Session string failed: {e}, falling back to file...", "WARNING")
+    
+    # Fallback: Use session file (for first time setup)
     sessions_dir = '/opt/render/project/src/sessions'
     os.makedirs(sessions_dir, exist_ok=True)
     
@@ -172,9 +199,11 @@ async def authorize_client(acc):
                     raise ValueError(f"PASSWORD_{acc['session_name']} not set in environment")
                 await client.sign_in(password=pw)
                 add_log(f"✅ Successfully signed in with 2FA for {acc['session_name']}", "SUCCESS")
+        else:
+            add_log(f"✅ [{acc['session_name']}] Connected via session file!", "SUCCESS")
         
         me = await client.get_me()
-        add_log(f"✅ [{acc['session_name']}] Logged in as: {me.first_name} (@{me.username if me.username else 'no username'})", "SUCCESS")
+        add_log(f"✅ Logged in as: {me.first_name} (@{me.username if me.username else 'no username'})", "SUCCESS")
         return client
         
     except Exception as e:
