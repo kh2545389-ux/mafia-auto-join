@@ -49,7 +49,7 @@ def load_accounts():
 
 # ─── SETTINGS ──────────────────────────────────────────────────
 notification_bot_id = int(os.getenv('NOTIFICATION_BOT_ID', '468253535'))
-mafia_chat = int(os.getenv('MAFIA_CHAT_ID', '-1230631243'))
+mafia_chat = '@truemafiaen'
 SEND_NEXT_INTERVAL = int(os.getenv('SEND_NEXT_INTERVAL', '60'))
 
 # ─── LOGGING HELPER ────────────────────────────────────────────
